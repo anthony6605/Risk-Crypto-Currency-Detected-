@@ -1,47 +1,15 @@
-# Python cache
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-pyvenv.cfg
 
-# Virtual environments
+# Virtual environment
 .venv/
 venv/
-env/
-anthony/
 
-# Environment variables (API keys, secrets, configs)
+# Environment variables
 .env
-# OS-specific
-.DS_Store
-Thumbs.db
-# Node/Vite
-node_modules/
-dist/
-.vite/
-
-# TypeScript
-*.tsbuildinfo
 
 
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# OS/Editor
-.DS_Store
-.vscode/
-.idea/
-
-# Coverage/Caches
-coverage/
-.nyc_output/
-.eslintcache
-.pnpm-store/
-
-/dependencies/
-node_modules/
+# Local data
+data
