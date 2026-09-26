@@ -7,6 +7,7 @@ SILVER_DIRECTORY = DATA_DIRECTORY / "silver"
 GOLD_DIRECTORY = DATA_DIRECTORY / "gold"
 COINGECKO_BRONZE_DIR = BRONZE_DIRECTORY / "coingecko"
 BINANCE_BRONZE_DIR = BRONZE_DIRECTORY / "binance"
+MARKET_SILVER_DIR = SILVER_DIRECTORY / "market"
 
 
 def create_directories():
@@ -16,7 +17,10 @@ def create_directories():
         GOLD_DIRECTORY,
         COINGECKO_BRONZE_DIR,
         BINANCE_BRONZE_DIR,
+        MARKET_SILVER_DIR,
     ]
 
     for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
+
+    

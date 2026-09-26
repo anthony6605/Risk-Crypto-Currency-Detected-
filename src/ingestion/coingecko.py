@@ -1,5 +1,5 @@
 import requests 
-class CoinGeckoAPI: 
+class CoinGeckoClient: 
     BASE_URL = "https://api.coingecko.com/api/v3"
 
     def __init__(self):
