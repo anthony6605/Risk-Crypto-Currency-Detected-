@@ -1,14 +1,16 @@
-import requests 
-class CoinGeckoClient: 
+import requests
+
+
+class CoinGeckoClient:
     BASE_URL = "https://api.coingecko.com/api/v3"
 
     def __init__(self):
         self.session = requests.Session()
-    
+
     def get_market_data(
-            self,
-            currency: str = "usd",
-            limit: int = 100,
+        self,
+        currency: str = "usd",
+        limit: int = 100,
     ):
         url = f"{self.BASE_URL}/coins/markets"
 
@@ -23,9 +25,31 @@ class CoinGeckoClient:
         response = self.session.get(
             url,
             params=params,
-            timeout = 30,
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
 
+    def get_market_history(
+        self,
+        coin_id: str,
+        currency: str = "usd",
+        days: int = 30,
+    ):
+        url = (
+            f"{self.BASE_URL}/coins/"
+            f"{coin_id}/market_chart"
+        )
 
+        params = {
+            "vs_currency": currency,
+            "days": days,
+        }
+
+        response = self.session.get(
+            url,
+            params=params,
+            timeout=30,
         )
         response.raise_for_status()
         return response.json()

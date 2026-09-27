@@ -4,6 +4,9 @@ from config.configs import (
     COINGECKO_BRONZE_DIR,
     MARKET_SILVER_DIR,
     create_directories,
+    COINGECKO_HISTORY_BRONZE_DIR,
+    HISTORY_SILVER_DIR,
+    
 )
 
 from src.ingestion.coingecko import (
@@ -21,6 +24,14 @@ from src.transformation.market import (
 
 from src.quality.market_checks import (
     validate_market_data,
+)
+
+from src.transformation.history import (
+    transform_market_history,
+)
+
+from src.quality.history_checks import (
+    validate_market_history,
 )
 
 
@@ -98,6 +109,77 @@ def main():
         f"Silver written: {silver_path}"
     )
 
+
+    coins = [
+        "bitcoin",
+        "ethereum",
+        "solana",
+
+    ]
+
+    for coin_id in coins:
+
+        print(
+            f"\nProcessing historical data for {coin_id}..."
+        )
+
+        history_data = client.get_market_history(
+            coin_id=coin_id,
+            currency="usd",
+            days=30,
+        )
+
+        bronze_history_path = write_json(
+            data=history_data,
+            directory=(
+                COINGECKO_HISTORY_BRONZE_DIR
+                / coin_id
+            ),
+            prefix="history",
+        )
+
+        print(
+            f"Historical Bronze written: {bronze_history_path}"
+        )
+
+        history_df = (
+            transform_market_history(
+                history_data,
+                coin_id, 
+            )
+        )
+
+        validate_market_history(
+            history_df
+        )
+
+        print(
+            f"{coin_id}: "
+            f"{len(history_df)}"
+            f"historical records validated."
+
+        )
+
+        silver_history_path = (
+        write_parquet(
+            df=history_df,
+            directory=(
+                HISTORY_SILVER_DIR
+                / coin_id
+            ),
+            filename=(
+                f"history_{timestamp}"
+                f".parquet"
+            ),
+        )
+    )
+
+    print(
+        f"Historical Silver written: "
+        f"{silver_history_path}"
+    )
+
+    
 
 if __name__ == "__main__":
     main()
