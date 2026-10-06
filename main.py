@@ -11,6 +11,18 @@ from config.configs import (
     RISK_HISTORY_GOLD_DIR,
     CURRENT_RISK_GOLD_DIR,
 )
+from src.database.connection import (
+    get_engine,
+)
+
+from src.database.schema import (
+    create_tables,
+)
+
+from src.database.loaders import (
+    upsert_current_risk,
+)
+
 from src.transformation.risk_score import (
     calculate_risk_score,
 )
@@ -51,6 +63,16 @@ from src.quality.history_checks import (
 def main():
 
     create_directories()
+
+    engine = get_engine()
+
+    create_tables(
+        engine
+    )
+
+    print(
+        "PostgreSQL connection ready."
+    )
 
     print("Starting CoinGecko ingestion...")
 
@@ -335,6 +357,17 @@ def main():
     print(
         f"Latest risk written: "
         f"{latest_risk_path}"
+    )
+
+    # LOAD CURRENT RISK INTO POSTGRESQL
+
+    upsert_current_risk(
+        df=current_risk_df,
+        engine=engine,
+    )
+
+    print(
+        "Current risk loaded into PostgreSQL."
     )
 
     print(
