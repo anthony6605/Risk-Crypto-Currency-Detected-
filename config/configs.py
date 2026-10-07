@@ -22,7 +22,8 @@ MARKET_SILVER_DIR = SILVER_DIRECTORY / "market"
 COINGECKO_HISTORY_BRONZE_DIR = COINGECKO_BRONZE_DIR / "history"
 HISTORY_SILVER_DIR = SILVER_DIRECTORY / "history"
 RISK_GOLD_DIR = GOLD_DIRECTORY / "risk_features"
-RISK_SCORE_GOLD_DIR = GOLD_DIRECTORY / "risk_scores"
+RISK_HISTORY_GOLD_DIR = (GOLD_DIRECTORY / "risk_history")
+CURRENT_RISK_GOLD_DIR = (GOLD_DIRECTORY / "current_risk")
 
 
 def create_directories():
@@ -34,7 +35,8 @@ def create_directories():
         BINANCE_BRONZE_DIR,
         MARKET_SILVER_DIR,
         RISK_GOLD_DIR, 
-        RISK_SCORE_GOLD_DIR,
+        RISK_HISTORY_GOLD_DIR,
+        CURRENT_RISK_GOLD_DIR,
     ]
 
     for directory in directories:

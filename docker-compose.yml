@@ -1,0 +1,19 @@
+services:
+
+  postgres:
+    image: postgres:18
+    container_name: riskcoin_postgres
+
+    environment:
+      POSTGRES_DB: RiskCoin
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "Leducanh662005."
+
+    ports:
+      - "5433:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+volumes:
+  postgres_data:
