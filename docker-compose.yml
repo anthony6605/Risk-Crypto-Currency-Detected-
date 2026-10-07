@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: RiskCoin
       POSTGRES_USER: "postgres"
-      POSTGRES_PASSWORD: "Leducanh662005."
+      POSTGRES_PASSWORD: "**********"
 
     ports:
       - "5433:5432"
