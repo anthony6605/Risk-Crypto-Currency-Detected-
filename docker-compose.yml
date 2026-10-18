@@ -5,6 +5,7 @@ services:
     container_name: riskcoin_postgres
 
     environment:
+
       POSTGRES_DB: ${POSTGRESQL_DB:-RiskCoin}
       POSTGRES_USER: ${POSTGRESQL_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD in .env}
