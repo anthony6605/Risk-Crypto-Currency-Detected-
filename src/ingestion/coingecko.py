@@ -71,3 +71,30 @@ class CoinGeckoClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def get_market_history_range(
+        self,
+        coin_id: str,
+        currency: str,
+        start,
+        end,
+    ):
+        # start / end are timezone-aware UTC datetimes
+        url = (
+            f"{self.BASE_URL}/coins/"
+            f"{coin_id}/market_chart/range"
+        )
+
+        params = {
+            "vs_currency": currency,
+            "from": int(start.timestamp()),
+            "to": int(end.timestamp()),
+        }
+
+        response = self.session.get(
+            url,
+            params=params,
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()

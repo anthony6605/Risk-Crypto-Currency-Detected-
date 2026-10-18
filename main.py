@@ -23,6 +23,18 @@ from src.database.loaders import (
     upsert_current_risk,
 )
 
+from src.database.control import (
+    get_watermark,
+    update_watermark,
+    start_audit,
+    finish_audit,
+)
+
+from src.pipeline.incremental import (
+    compute_extraction_window,
+    keep_new_rows,
+)
+
 from src.transformation.risk_score import (
     calculate_risk_score,
 )
@@ -41,6 +53,7 @@ from src.ingestion.coingecko import (
 from src.storage.local_storage import (
     write_json,
     write_parquet,
+    merge_into_silver,
 )
 
 from src.transformation.market import (
@@ -58,6 +71,11 @@ from src.quality.market_checks import (
 from src.quality.history_checks import (
     validate_market_history,
 )
+
+
+def get_silver_history_path(coin_id):
+    # One Silver file per coin, appended to on every run
+    return HISTORY_SILVER_DIR / coin_id / "history.parquet"
 
 
 def main():
@@ -148,7 +166,11 @@ def main():
         "solana",
     ]
 
-    latest_feature_rows = []
+    failed_coins = []
+
+    # ==================================================
+    # INCREMENTAL HISTORY EXTRACTION
+    # ==================================================
 
     for coin_id in coins:
 
@@ -156,74 +178,190 @@ def main():
             f"\nProcessing historical data for {coin_id}..."
         )
 
-        
-
-        history_data = client.get_market_history(
-            coin_id=coin_id,
-            currency="usd",
-            days=30,
+        audit_id = start_audit(
+            engine,
+            coin_id,
         )
 
-        
+        try:
 
-        bronze_history_path = write_json(
-            data=history_data,
-            directory=(
-                COINGECKO_HISTORY_BRONZE_DIR
-                / coin_id
-            ),
-            prefix="history",
+            # WATERMARK + EXTRACTION WINDOW
+
+            watermark = get_watermark(
+                engine,
+                coin_id,
+            )
+
+            start, end = compute_extraction_window(
+                watermark
+            )
+
+            print(
+                f"[{coin_id}] watermark={watermark}  "
+                f"window={start:%Y-%m-%d %H:%M} -> "
+                f"{end:%Y-%m-%d %H:%M}"
+            )
+
+            # EXTRACT
+
+            history_data = client.get_market_history_range(
+                coin_id=coin_id,
+                currency="usd",
+                start=start,
+                end=end,
+            )
+
+            # BRONZE
+
+            bronze_history_path = write_json(
+                data=history_data,
+                directory=(
+                    COINGECKO_HISTORY_BRONZE_DIR
+                    / coin_id
+                ),
+                prefix="history",
+            )
+
+            print(
+                f"Historical Bronze written: "
+                f"{bronze_history_path}"
+            )
+
+            # TRANSFORM + QUALITY
+
+            history_df = transform_market_history(
+                data=history_data,
+                coin_id=coin_id,
+            )
+
+            validate_market_history(
+                history_df
+            )
+
+            rows_extracted = len(history_df)
+
+            # KEEP ONLY ROWS NEWER THAN THE WATERMARK
+
+            new_rows = keep_new_rows(
+                history_df,
+                watermark,
+            )
+
+            if new_rows.empty:
+
+                finish_audit(
+                    engine,
+                    audit_id,
+                    "SKIPPED",
+                    rows_extracted,
+                    0,
+                )
+
+                print(
+                    f"[{coin_id}] no new rows"
+                )
+
+                continue
+
+            # SILVER: APPEND + DE-DUPLICATE
+
+            silver_history_path = get_silver_history_path(
+                coin_id
+            )
+
+            rows_loaded = merge_into_silver(
+                new_df=new_rows,
+                silver_path=silver_history_path,
+            )
+
+            print(
+                f"Historical Silver merged: "
+                f"{silver_history_path}"
+            )
+
+            # MOVE THE WATERMARK ONLY AFTER SILVER IS WRITTEN
+
+            new_watermark = (
+                new_rows["timestamp"]
+                .max()
+                .to_pydatetime()
+            )
+
+            update_watermark(
+                engine,
+                coin_id,
+                new_watermark,
+            )
+
+            finish_audit(
+                engine,
+                audit_id,
+                "SUCCESS",
+                rows_extracted,
+                rows_loaded,
+            )
+
+            print(
+                f"[{coin_id}] extracted={rows_extracted} "
+                f"loaded={rows_loaded} "
+                f"watermark -> {new_watermark}"
+            )
+
+        except Exception as exc:
+
+            finish_audit(
+                engine,
+                audit_id,
+                "FAILED",
+                error_message=str(exc)[:2000],
+            )
+
+            failed_coins.append(
+                coin_id
+            )
+
+            print(
+                f"[{coin_id}] FAILED: {exc}"
+            )
+
+    # ==================================================
+    # GOLD: REBUILT FROM THE FULL SILVER HISTORY
+    # ==================================================
+
+    latest_feature_rows = []
+
+    for coin_id in coins:
+
+        silver_history_path = get_silver_history_path(
+            coin_id
         )
 
-        print(
-            f"Historical Bronze written: "
-            f"{bronze_history_path}"
+        if not silver_history_path.exists():
+
+            print(
+                f"\n{coin_id}: no Silver history yet, "
+                f"skipping Gold."
+            )
+
+            continue
+
+        history_df = pd.read_parquet(
+            silver_history_path
         )
-
-        
-
-        history_df = transform_market_history(
-            data=history_data,
-            coin_id=coin_id,
-        )
-
-        
 
         validate_market_history(
             history_df
         )
 
         print(
-            f"{coin_id}: "
+            f"\n{coin_id}: "
             f"{len(history_df)} "
-            f"historical records validated."
+            f"Silver history rows validated."
         )
 
-        
-
-        silver_history_path = write_parquet(    
-            df=history_df,
-            directory=(
-                HISTORY_SILVER_DIR
-                / coin_id
-            ),
-            filename=(
-                f"history_{timestamp}.parquet"
-            ),
-        )
-
-        print(
-            f"Historical Silver written: "
-            f"{silver_history_path}"
-        )
-
-    
-    
         feature_df = engineer_risk_features(
             history_df
         )
-
-        
 
         validate_risk_features(
             feature_df
@@ -233,8 +371,6 @@ def main():
             f"{coin_id}: "
             f"risk features calculated."
         )
-
-        
 
         gold_path = write_parquet(
             df=feature_df,
@@ -254,7 +390,6 @@ def main():
         )
 
         # HISTORICAL RISK
-        
 
         historical_risk_df = (
             calculate_risk_score(
@@ -279,9 +414,7 @@ def main():
             f"{historical_risk_path}"
         )
 
-        
         # KEEP LATEST FEATURE ROW
-        
 
         latest_feature = (
             feature_df
@@ -298,6 +431,12 @@ def main():
 
         latest_feature_rows.append(
             latest_feature
+        )
+
+    if not latest_feature_rows:
+
+        raise RuntimeError(
+            "No Silver history for any coin; nothing to score."
         )
 
     
@@ -379,6 +518,17 @@ def main():
             ]
         ].to_string(index=False)
     )
+
+    # Exit with an error code so a scheduler can tell
+    # that one or more coins failed
+    if failed_coins:
+
+        print(
+            f"\nCoinGecko pipeline finished with failures: "
+            f"{', '.join(failed_coins)} (see pipeline_audit)."
+        )
+
+        raise SystemExit(1)
 
     print(
         "\nCoinGecko pipeline completed successfully."
