@@ -58,6 +58,10 @@ def transform_market_history(
         "timestamp"
     )
 
+    # Floor to the hour so the same hour fetched
+    # on two different runs is the same row
+    df["timestamp"] = df["timestamp"].dt.floor("h")
+
     # Remove duplicates
     df = df.drop_duplicates(
         subset=[
