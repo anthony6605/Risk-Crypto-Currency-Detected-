@@ -1,0 +1,50 @@
+exchange: binance_us
+
+# Binance.com blocks US connections (HTTP 451), so this uses Binance.US.
+# Outside the US you could use: wss://stream.binance.com:9443/ws/!miniTicker@arr
+# (with quote_assets [USDT] and min_quote_volume_24h 1000000)
+websocket_url: wss://stream.binance.us:9443/ws/!miniTicker@arr
+
+# Read once at startup to pick each coin's most liquid pair (see quote_assets).
+# Outside the US: https://api.binance.com/api/v3/ticker/24hr
+rest_ticker_url: https://api.binance.us/api/v3/ticker/24hr
+
+# Only keep pairs priced in these quote assets (BTCUSDT -> base BTC, quote USDT).
+# On Binance.US most coins trade only against USD, so both are needed.
+# A coin listed against both (BTCUSD and BTCUSDT) is published from its
+# most liquid pair only, so each coin has a single price series.
+quote_assets:
+  - USDT
+  - USD
+
+# Skip pairs whose 24h trading volume (in the quote asset) is below this.
+# This removes dead and illiquid pairs whose risk score would be noise.
+# Binance.US is much thinner than Binance.com, hence the lower threshold.
+min_quote_volume_24h: 50000
+
+# Publish at most one event per pair every N seconds.
+# 1 second = everything; 10 seconds keeps your disk usage sensible.
+min_publish_interval_seconds: 10
+
+# Stablecoins, wrapped tokens and tokenized gold: their "price risk" isn't meaningful
+exclude_base_assets:
+  - USDT
+  - USDC
+  - BUSD
+  - FDUSD
+  - TUSD
+  - USDP
+  - DAI
+  - PYUSD
+  - USDE
+  - USD1
+  - EUR
+  - EURC
+  - WBTC
+  - WBETH
+  - PAXG
+  - XAUT
+
+kafka:
+  bootstrap_servers: localhost:9092
+  topic: crypto.prices.raw

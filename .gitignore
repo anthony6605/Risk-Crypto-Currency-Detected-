@@ -13,3 +13,6 @@ venv/
 
 # Local data
 data
+
+# Pipeline logs
+logs/

@@ -97,14 +97,17 @@ def upsert_current_risk(
         """
     )
 
+    # Send missing values as NULL. A float NaN would be stored as NaN, which
+    # PostgreSQL sorts above every real number and which turns AVG() into NaN.
     records = (
         df
-        .copy()
         .astype(
             {
                 "risk_level": "string",
             }
         )
+        .astype(object)
+        .where(df.notna(), None)
         .to_dict(
             orient="records"
         )

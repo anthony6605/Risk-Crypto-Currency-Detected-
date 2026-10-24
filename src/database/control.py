@@ -145,3 +145,35 @@ def finish_audit(
                 "error_message": error_message,
             },
         )
+
+
+def close_abandoned_audits(
+    engine,
+    older_than_hours=2,
+    pipeline_name=PIPELINE_NAME,
+):
+    """Mark RUNNING rows that never finished as FAILED."""
+
+    query = text(
+        """
+        UPDATE pipeline_audit
+        SET status = 'FAILED',
+            ended_at = CURRENT_TIMESTAMP,
+            error_message = 'Abandoned: run never finished'
+        WHERE pipeline_name = :pipeline_name
+          AND status = 'RUNNING'
+          AND started_at < CURRENT_TIMESTAMP - make_interval(hours => :hours)
+        """
+    )
+
+    with engine.begin() as connection:
+
+        result = connection.execute(
+            query,
+            {
+                "pipeline_name": pipeline_name,
+                "hours": older_than_hours,
+            },
+        )
+
+        return result.rowcount
