@@ -1,0 +1,70 @@
+# Which coins get the 30-day CoinGecko history backfill (the batch job, main.py).
+# Live prices come from the Binance stream instead (config/stream.yaml).
+#
+# mode: "list"  -> use the coins below
+# mode: "top_n" -> use the top N by market cap from CoinGecko
+#
+# These are CoinGecko ids, not ticker symbols:
+# XRP is ripple, BNB is binancecoin, AVAX is avalanche-2.
+# Check them with: python -m scripts.validate_coins
+mode: top_n
+currency: usd
+
+coins:
+  - bitcoin
+  - ethereum
+  - solana
+  - binancecoin
+  - ripple
+  - cardano
+  - dogecoin
+  - avalanche-2
+  - chainlink
+  - polkadot
+
+top_n:
+  size: 100
+  # Assets pegged to something else have no meaningful "risk" of their own.
+  # Built from CoinGecko's stablecoin, tokenized-gold and yield-bearing-stablecoin
+  # categories for the top 160 coins (Oct 2026). Add new ones as they appear.
+  exclude:
+    # Wrapped and staked versions of other coins
+    - staked-ether
+    - wrapped-steth
+    - wrapped-bitcoin
+    - weth
+    # US dollar stablecoins
+    - tether
+    - usd-coin
+    - dai
+    - usds
+    - ethena-usde
+    - first-digital-usd
+    - usd1-wlfi
+    - global-dollar
+    - paypal-usd
+    - ripple-usd
+    - falcon-finance
+    - usdd
+    - united-stables
+    - bfusd
+    - usdgo
+    - open-usd
+    - gho
+    - usual-usd
+    - ylds
+    - true-usd
+    - re-protocol-reusd
+    - sofiusd
+    - apxusd
+    # Yield-bearing dollar tokens and tokenized money-market funds
+    - ondo-us-dollar-yield
+    - usdai
+    - blackrock-usd-institutional-digital-liquidity-fund
+    # Other currencies
+    - euro-coin
+    - a7a5
+    # Tokenized gold
+    - tether-gold
+    - pax-gold
+    - kinesis-gold

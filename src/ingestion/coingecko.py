@@ -98,3 +98,47 @@ class CoinGeckoClient:
         )
         response.raise_for_status()
         return response.json()
+
+    def get_coin_list(self):
+        # Every coin CoinGecko knows: [{id, symbol, name}, ...]. Used for validation.
+        url = f"{self.BASE_URL}/coins/list"
+
+        response = self.session.get(
+            url,
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def get_simple_prices(
+        self,
+        coin_ids: list,
+        currency: str = "usd",
+        chunk_size: int = 100,
+    ):
+        # Live price for MANY coins in ONE request (the Step 36 producer uses this).
+        # Lists longer than chunk_size are split into several requests.
+        url = f"{self.BASE_URL}/simple/price"
+
+        prices = {}
+
+        for start in range(0, len(coin_ids), chunk_size):
+
+            params = {
+                "ids": ",".join(coin_ids[start:start + chunk_size]),
+                "vs_currencies": currency,
+                "include_market_cap": "true",
+                "include_24hr_vol": "true",
+                "include_24hr_change": "true",
+                "include_last_updated_at": "true",
+            }
+
+            response = self.session.get(
+                url,
+                params=params,
+                timeout=30,
+            )
+            response.raise_for_status()
+            prices.update(response.json())
+
+        return prices

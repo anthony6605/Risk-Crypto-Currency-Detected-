@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 from datetime import datetime, timezone
 
@@ -28,6 +30,7 @@ from src.database.control import (
     update_watermark,
     start_audit,
     finish_audit,
+    close_abandoned_audits,
 )
 
 from src.pipeline.incremental import (
@@ -48,6 +51,10 @@ from src.transformation.features import (
 )
 from src.ingestion.coingecko import (
     CoinGeckoClient,
+)
+
+from src.config.coins import (
+    get_tracked_coins,
 )
 
 from src.storage.local_storage import (
@@ -73,6 +80,11 @@ from src.quality.history_checks import (
 )
 
 
+# CoinGecko's free Demo plan allows about 30 requests per minute.
+# If an audit row ever shows "429 Too Many Requests", raise this.
+REQUEST_DELAY_SECONDS = 2.5
+
+
 def get_silver_history_path(coin_id):
     # One Silver file per coin, appended to on every run
     return HISTORY_SILVER_DIR / coin_id / "history.parquet"
@@ -87,6 +99,16 @@ def main():
     create_tables(
         engine
     )
+
+    # Runs killed mid-way (Mac asleep, Ctrl+C) leave audit rows at RUNNING
+    abandoned = close_abandoned_audits(
+        engine
+    )
+
+    if abandoned:
+        print(
+            f"Closed {abandoned} abandoned audit row(s)."
+        )
 
     print(
         "PostgreSQL connection ready."
@@ -160,11 +182,14 @@ def main():
     )
 
    
-    coins = [
-        "bitcoin",
-        "ethereum",
-        "solana",
-    ]
+    # The coin list lives in config/coins.yaml
+    coins = get_tracked_coins(
+        client
+    )
+
+    print(
+        f"\nTracking {len(coins)} coins"
+    )
 
     failed_coins = []
 
@@ -172,7 +197,15 @@ def main():
     # INCREMENTAL HISTORY EXTRACTION
     # ==================================================
 
-    for coin_id in coins:
+    for index, coin_id in enumerate(coins):
+
+        # Pause between coins to stay under the rate limit. This sits at the
+        # top of the loop because the SKIPPED path below uses `continue`,
+        # which would jump over a pause placed at the end.
+        if index > 0:
+            time.sleep(
+                REQUEST_DELAY_SECONDS
+            )
 
         print(
             f"\nProcessing historical data for {coin_id}..."
