@@ -1,0 +1,5 @@
+sqlalchemy==2.*
+psycopg2-binary==2.9.*
+pandas==2.*
+pyarrow
+python-dotenv

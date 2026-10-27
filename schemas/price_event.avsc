@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "PriceEvent",
+  "namespace": "riskcoin.prices",
+  "doc": "One ticker update for one trading pair, published by the RiskCoin producer.",
+  "fields": [
+    {"name": "schema_version", "type": "int", "doc": "Event format version (1)."},
+    {"name": "event_id", "type": "string", "doc": "exchange:pair:event_time_ms, unique per update."},
+    {"name": "exchange", "type": "string"},
+    {"name": "pair", "type": "string", "doc": "Exchange symbol, e.g. BTCUSDT."},
+    {"name": "base_asset", "type": "string", "doc": "Upper-case base asset, e.g. BTC."},
+    {"name": "quote_asset", "type": "string", "doc": "Upper-case quote asset, e.g. USDT."},
+    {"name": "price", "type": "double", "doc": "Last price in the quote asset."},
+    {"name": "open_24h", "type": "double"},
+    {"name": "high_24h", "type": "double"},
+    {"name": "low_24h", "type": "double"},
+    {"name": "volume_24h_base", "type": "double"},
+    {"name": "volume_24h_quote", "type": "double"},
+    {"name": "event_time", "type": {"type": "long", "logicalType": "timestamp-millis"},
+     "doc": "When the exchange produced the update (UTC)."},
+    {"name": "ingested_at", "type": {"type": "long", "logicalType": "timestamp-micros"},
+     "doc": "When the producer received it (UTC)."}
+  ]
+}

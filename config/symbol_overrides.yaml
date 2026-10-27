@@ -1,0 +1,4 @@
+# symbol (lowercase) -> CoinGecko id
+# Add a line whenever a stream symbol (e.g. ton) maps to the wrong coin.
+overrides:
+  ton: the-open-network

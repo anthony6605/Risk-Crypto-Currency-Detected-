@@ -1,6 +1,7 @@
 #!/bin/bash
-# Runs the RiskCoin batch pipeline. cron calls this every hour (see: crontab -l),
-# but the batch itself runs at most once per day (step 3). Use --force to run anyway.
+# Runs the RiskCoin batch pipeline (main.py, the CoinGecko history backfill).
+# cron calls this every hour (see: crontab -l), but the batch runs at most once
+# per day (step 3). Use --force to run anyway.
 set -euo pipefail
 
 # The project folder is the folder above this script, so no path needs editing
@@ -56,15 +57,16 @@ fi
 cd "$PROJECT_DIR"
 log "===== run started ====="
 
+batch_exit=0
 if "$PYTHON" -u main.py >> "$LOG_FILE" 2>&1; then
-    echo "$TODAY" > "$LAST_RUN_FILE"
     log "===== run finished OK ====="
 else
-    exit_code=$?
-    # Count failed runs too, so a coin that keeps failing can't trigger 100+ API
-    # calls every hour. Failed coins are retried tomorrow; their watermarks make
-    # sure no data is skipped.
-    echo "$TODAY" > "$LAST_RUN_FILE"
-    log "===== run FAILED (exit code $exit_code) ====="
-    exit "$exit_code"
+    batch_exit=$?
+    log "===== run FAILED (exit code $batch_exit) ====="
 fi
+# Count failed runs too, so a coin that keeps failing can't trigger 100+ API
+# calls every hour. Failed coins are retried tomorrow; their watermarks make
+# sure no data is skipped.
+echo "$TODAY" > "$LAST_RUN_FILE"
+
+exit "$batch_exit"

@@ -1,6 +1,5 @@
 from sqlalchemy import text
 
-
 PIPELINE_NAME = "crypto_history"
 
 
@@ -118,6 +117,7 @@ def finish_audit(
     rows_extracted=0,
     rows_loaded=0,
     error_message=None,
+    rows_rejected=0,
 ):
     """Close an audit row with its final status and counts."""
 
@@ -128,6 +128,7 @@ def finish_audit(
             ended_at = CURRENT_TIMESTAMP,
             rows_extracted = :rows_extracted,
             rows_loaded = :rows_loaded,
+            rows_rejected = :rows_rejected,
             error_message = :error_message
         WHERE audit_id = :audit_id
         """
@@ -142,6 +143,7 @@ def finish_audit(
                 "status": status,
                 "rows_extracted": int(rows_extracted),
                 "rows_loaded": int(rows_loaded),
+                "rows_rejected": int(rows_rejected),
                 "error_message": error_message,
             },
         )

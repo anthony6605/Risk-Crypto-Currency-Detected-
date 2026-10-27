@@ -29,14 +29,16 @@ class CoinGeckoClient:
         self,
         currency: str = "usd",
         limit: int = 100,
+        page: int = 1,
     ):
+        # Top coins by market cap. CoinGecko allows up to 250 per page.
         url = f"{self.BASE_URL}/coins/markets"
 
         params = {
             "vs_currency": currency,
             "order": "market_cap_desc",
             "per_page": limit,
-            "page": 1,
+            "page": page,
             "sparkline": False,
         }
 
@@ -116,8 +118,8 @@ class CoinGeckoClient:
         currency: str = "usd",
         chunk_size: int = 100,
     ):
-        # Live price for MANY coins in ONE request (the Step 36 producer uses this).
-        # Lists longer than chunk_size are split into several requests.
+        # Live price and market cap for MANY coins in ONE request (validate_coins.py
+        # uses it to rank look-alike ids). Longer lists are split into several requests.
         url = f"{self.BASE_URL}/simple/price"
 
         prices = {}
