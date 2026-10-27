@@ -1,0 +1,17 @@
+# Dagster instance settings. The dagster service copies this file into DAGSTER_HOME
+# every time it starts.
+
+# One run at a time, so two dbt builds never write the same tables at once
+run_queue:
+  max_concurrent_runs: 1
+
+# Docker pauses while a laptop sleeps. When it wakes, run each schedule once,
+# not once for every tick it missed
+scheduler:
+  module: dagster._core.scheduler
+  class: DagsterDaemonScheduler
+  config:
+    max_catchup_runs: 1
+
+telemetry:
+  enabled: false

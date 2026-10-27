@@ -1,0 +1,6 @@
+# Dagster and dbt for the dagster service, installed in the Docker image (see Dockerfile)
+dagster==1.13.*
+dagster-webserver==1.13.*
+dagster-dbt==0.29.*
+dbt-core==1.12.*
+dbt-postgres==1.11.*

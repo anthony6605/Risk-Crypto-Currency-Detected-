@@ -1,5 +1,5 @@
 # One-word commands for the RiskCoin stack, e.g. `make up` or `make test`.
-.PHONY: up down ps logs test test-db lint backfill catalog psql dashboard dbt-setup dbt-build dbt dbt-docs
+.PHONY: up down ps logs test test-db lint backfill catalog job psql dashboard dbt-setup dbt-build dbt dbt-docs
 
 # Use the project's virtual environment when there is one
 PYTHON := $(if $(wildcard venv/bin/python),venv/bin/python,python3)
@@ -40,8 +40,15 @@ lint:
 backfill:
 	docker compose run --rm batch
 
+# Dagster jobs, run now instead of waiting for their schedule (needs the stack running)
+DAGSTER_JOB := docker compose exec dagster dagster job execute -m orchestration.definitions -j
+
 catalog:
-	docker compose run --rm coin-catalog python -m src.jobs.refresh_coin_catalog
+	$(DAGSTER_JOB) daily_catalog
+
+# Any Dagster job, e.g. make job JOB=hourly_dbt
+job:
+	$(DAGSTER_JOB) $(JOB)
 
 # Uses the user and database the postgres container was created with (.env)
 psql:

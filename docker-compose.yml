@@ -179,9 +179,24 @@ services:
     <<: *app
     command: python -m src.jobs.compute_live_risk --every 300
 
-  coin-catalog:
+  # Step 46: Dagster runs the batch work on schedules, with retries and run history:
+  # the coin catalog, the CoinGecko history (main.py), dbt and a stream freshness check.
+  # UI: http://localhost:3000. Schedules start switched off; turn them on once in the UI.
+  dagster:
     <<: *app
-    command: python -m src.jobs.refresh_coin_catalog --every 86400
+    command: >
+      sh -c "cp orchestration/dagster.yaml $$DAGSTER_HOME/ &&
+      exec dagster dev -h 0.0.0.0 -p 3000 -m orchestration.definitions"
+    environment:
+      <<: *docker-env
+      DBT_HOST: postgres
+      DBT_PORT: "5432"
+      DAGSTER_HOME: /opt/dagster/home
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - dagster_home:/opt/dagster/home
 
   # Step 43: Streamlit dashboard at http://localhost:8501
   dashboard:
@@ -232,3 +247,4 @@ volumes:
   kafka_data:
   spark_checkpoints:
   spark_ivy:
+  dagster_home:

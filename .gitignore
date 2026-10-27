@@ -34,6 +34,9 @@ transform/logs/
 transform/dbt_packages/
 transform/.user.yml
 
+# Dagster run history when it runs outside Docker
+.dagster_home/
+
 # Test and lint caches
 .pytest_cache/
 .ruff_cache/

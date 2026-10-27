@@ -7,6 +7,7 @@ guides/
 transform/target/
 transform/logs/
 transform/dbt_packages/
+.dagster_home/
 data/
 logs/
 __pycache__/
