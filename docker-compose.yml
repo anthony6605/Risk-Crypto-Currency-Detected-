@@ -8,6 +8,7 @@ x-docker-env: &docker-env
   POSTGRESQL_HOST: postgres
   POSTGRESQL_PORT: "5432"
   SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  S3_ENDPOINT: http://lake:9000
 
 # Shared settings for every service built from this project's Dockerfile.
 # (No shared "image:" name: several services building one tag in parallel collide.
@@ -179,6 +180,40 @@ services:
     <<: *app
     command: python -m src.jobs.compute_live_risk --every 300
 
+  # Step 47: S3-compatible object storage for the Iceberg lakehouse.
+  # S3 API on port 9000; web console at http://localhost:9001/rustfs/console/
+  lake:
+    image: rustfs/rustfs:1.0.4
+    container_name: riskcoin_lake
+    command: /data
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - lake_data:/data
+    restart: unless-stopped
+
+  # Creates the bucket, then exits. Safe on every start (|| true when it already exists).
+  lake-init:
+    image: amazon/aws-cli:2.31.0
+    depends_on:
+      - lake
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env}
+      AWS_DEFAULT_REGION: us-east-1
+      LAKE_BUCKET: ${LAKE_BUCKET:-riskcoin-lake}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until aws --endpoint-url http://lake:9000 s3 ls > /dev/null 2>&1; do sleep 2; done
+        aws --endpoint-url http://lake:9000 s3 mb "s3://$$LAKE_BUCKET" || true
+        aws --endpoint-url http://lake:9000 s3 ls
+    restart: "no"
+
   # Step 46: Dagster runs the batch work on schedules, with retries and run history:
   # the coin catalog, the CoinGecko history (main.py), dbt and a stream freshness check.
   # UI: http://localhost:3000. Schedules start switched off; turn them on once in the UI.
@@ -248,3 +283,4 @@ volumes:
   spark_checkpoints:
   spark_ivy:
   dagster_home:
+  lake_data:
