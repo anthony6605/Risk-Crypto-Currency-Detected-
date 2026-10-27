@@ -29,7 +29,8 @@ SELECT
     EXTRACT(EPOCH FROM CURRENT_TIMESTAMP - (SELECT MAX(event_time) FROM live_prices))  AS price_lag_s,
     EXTRACT(EPOCH FROM CURRENT_TIMESTAMP - (SELECT MAX(ended_at) FROM pipeline_audit
         WHERE pipeline_name = 'live_risk' AND status = 'SUCCESS'))                     AS risk_lag_s,
-    (SELECT COUNT(*) FROM live_prices)                                                AS coins_tracked,
+    (SELECT COUNT(*) FROM live_prices
+      WHERE event_time > CURRENT_TIMESTAMP - INTERVAL '1 hour')                       AS coins_tracked,
     (SELECT COUNT(*) FROM live_risk)                                                  AS coins_scored,
     (SELECT COALESCE(MAX(bars), 0) FROM (
         SELECT COUNT(*) AS bars FROM price_bars_1m
@@ -61,10 +62,12 @@ LEFT JOIN coin_catalog c ON c.symbol = LOWER(r.base_asset)
 ORDER BY r.risk_score DESC
 """
 
-# Every coin with a live price, biggest first, for the Coin detail picker
+# Coins priced in the last 24 hours, biggest first, for the Coin detail picker
+# (a coin that drops out of the top 100 keeps its last row in live_prices)
 COINS_SQL = """
 SELECT base_asset, COALESCE(name, base_asset) AS name, price, change_24h_pct
 FROM live_prices_enriched
+WHERE event_time > CURRENT_TIMESTAMP - INTERVAL '24 hours'
 ORDER BY market_cap DESC NULLS LAST, base_asset
 """
 
