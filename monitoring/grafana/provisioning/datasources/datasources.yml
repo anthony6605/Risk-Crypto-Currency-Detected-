@@ -1,0 +1,23 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  # The ${...} values come from the grafana service's environment (docker-compose.yml),
+  # which reads them from .env, so no password is stored here
+  - name: RiskCoin PostgreSQL
+    uid: riskcoin-postgres
+    type: grafana-postgresql-datasource
+    url: postgres:5432
+    user: ${POSTGRESQL_USER}
+    jsonData:
+      database: ${POSTGRESQL_DB}
+      sslmode: disable
+      postgresVersion: 1600  # PostgreSQL 16 or newer (this database runs 18)
+    secureJsonData:
+      password: ${POSTGRESQL_PASSWORD}

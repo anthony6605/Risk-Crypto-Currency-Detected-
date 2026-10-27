@@ -17,6 +17,7 @@ from confluent_kafka import Producer
 
 from src.config.coins import load_coin_config
 from src.ingestion.coingecko import CoinGeckoClient
+from src.monitoring import metrics
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "stream.yaml"
@@ -113,6 +114,7 @@ class Stats:
     def on_delivery(self, err, msg):
         if err is not None:
             self.counts["failed"] += 1
+            metrics.DELIVERY_FAILURES.inc()
             print(f"Delivery FAILED for key={msg.key()}: {err}")
         else:
             self.counts["delivered"] += 1
@@ -133,6 +135,7 @@ def publish(producer, topic, key, value, stats):
 
 def main():
     config = load_config()
+    metrics.start_metrics_server(8000, metrics.PRODUCER)
     coins = load_coin_config()["top_n"]
     interval = int(config["poll_interval_seconds"])
     topic = config["kafka"]["topic"]
@@ -166,6 +169,10 @@ def main():
         avro_codec = AvroEventCodec(avro_topic)
         print(f"Also publishing Avro to '{avro_topic}'")
 
+    # Start each topic's counter at 0, so "published nothing" alerts work before the first event
+    for name in filter(None, [topic, avro_topic]):
+        metrics.EVENTS_PUBLISHED.labels(topic=name)
+
     running = True
 
     def stop(signum=None, frame=None):
@@ -182,6 +189,7 @@ def main():
         while running:
             started = time.monotonic()
             stats.counts["polls"] += 1
+            metrics.POLLS.inc()
             try:
                 markets = client.get_market_data(currency="usd", limit=per_page)
                 polled_at = datetime.now(timezone.utc)
@@ -191,15 +199,21 @@ def main():
                     event = build_event(market, polled_at)
                     key = event["base_asset"].lower()
                     publish(producer, topic, key, json.dumps(event), stats)
+                    metrics.EVENTS_PUBLISHED.labels(topic=topic).inc()
                     if avro_codec is not None:
                         publish(producer, avro_codec.topic, key, avro_codec.encode(event), stats)
+                        metrics.EVENTS_PUBLISHED.labels(topic=avro_codec.topic).inc()
                     stats.counts["published"] += 1
+                if selected:
+                    newest_ms = max(iso_to_ms(market["last_updated"]) for market in selected)
+                    metrics.LAST_EXCHANGE_EVENT.set(newest_ms / 1000)
 
                 producer.flush(30)
                 print(f"[poll] {len(selected)} new prices | {stats.line()}")
             except requests.RequestException as exc:
                 # Network problem or rate limit (429): try again at the next poll
                 stats.counts["poll_errors"] += 1
+                metrics.POLL_ERRORS.inc()
                 print(f"CoinGecko request failed: {exc}. Retrying in {interval}s")
 
             # Sleep in short steps so Ctrl+C / docker stop is handled quickly

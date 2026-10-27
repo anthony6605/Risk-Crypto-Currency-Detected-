@@ -233,6 +233,45 @@ services:
       - ./data:/app/data
       - dagster_home:/opt/dagster/home
 
+  # Step 50: Prometheus scrapes the producer (:8000) and consumer (:8001) metrics and
+  # evaluates the alert rules in monitoring/prometheus. http://localhost:9090
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    container_name: riskcoin_prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  # Dashboards and data sources come from monitoring/grafana. http://localhost:3001
+  # (Dagster has 3000); log in as admin with GRAFANA_ADMIN_PASSWORD from .env
+  grafana:
+    image: grafana/grafana:13.2.4
+    container_name: riskcoin_grafana
+    depends_on:
+      - prometheus
+      - postgres
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      # For the PostgreSQL data source (monitoring/grafana/provisioning/datasources)
+      POSTGRESQL_USER: ${POSTGRESQL_USER:-postgres}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD in .env}
+      POSTGRESQL_DB: ${POSTGRESQL_DB:-RiskCoin}
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
   # Step 43: Streamlit dashboard at http://localhost:8501
   dashboard:
     <<: *app
@@ -284,3 +323,5 @@ volumes:
   spark_ivy:
   dagster_home:
   lake_data:
+  prometheus_data:
+  grafana_data:
