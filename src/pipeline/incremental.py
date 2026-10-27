@@ -2,7 +2,6 @@ from datetime import datetime, timedelta, timezone
 
 import pandas as pd
 
-
 INITIAL_LOOKBACK_DAYS = 30  # first run: backfill 30 days
 MIN_WINDOW_DAYS = 2         # always ask for at least 2 days (keeps hourly granularity)
 MAX_WINDOW_DAYS = 90        # CoinGecko switches to daily data above 90 days

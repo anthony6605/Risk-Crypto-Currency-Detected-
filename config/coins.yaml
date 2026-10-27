@@ -1,5 +1,4 @@
 # Which coins get the 30-day CoinGecko history backfill (the batch job, main.py).
-# Live prices come from the Binance stream instead (config/stream.yaml).
 #
 # mode: "list"  -> use the coins below
 # mode: "top_n" -> use the top N by market cap from CoinGecko

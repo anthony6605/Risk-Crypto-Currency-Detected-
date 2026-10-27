@@ -1,84 +1,70 @@
 import time
+from datetime import datetime, timezone
 
 import pandas as pd
-from datetime import datetime, timezone
 
 from config.configs import (
     COINGECKO_BRONZE_DIR,
     COINGECKO_HISTORY_BRONZE_DIR,
-    MARKET_SILVER_DIR,
+    CURRENT_RISK_GOLD_DIR,
     HISTORY_SILVER_DIR,
-    create_directories,
+    MARKET_SILVER_DIR,
     RISK_GOLD_DIR,
     RISK_HISTORY_GOLD_DIR,
-    CURRENT_RISK_GOLD_DIR,
+    create_directories,
+)
+from src.config.coins import (
+    get_tracked_coins,
 )
 from src.database.connection import (
     get_engine,
 )
-
-from src.database.schema import (
-    create_tables,
+from src.database.control import (
+    close_abandoned_audits,
+    finish_audit,
+    get_watermark,
+    start_audit,
+    update_watermark,
 )
-
 from src.database.loaders import (
     upsert_current_risk,
 )
-
-from src.database.control import (
-    get_watermark,
-    update_watermark,
-    start_audit,
-    finish_audit,
-    close_abandoned_audits,
-)
-
-from src.pipeline.incremental import (
-    compute_extraction_window,
-    keep_new_rows,
-)
-
-from src.transformation.risk_score import (
-    calculate_risk_score,
-)
-
-from src.quality.feature_checks import (
-    validate_risk_features,
-)
-
-from src.transformation.features import (
-    engineer_risk_features,
+from src.database.schema import (
+    create_tables,
 )
 from src.ingestion.coingecko import (
     CoinGeckoClient,
 )
-
-from src.config.coins import (
-    get_tracked_coins,
+from src.pipeline.incremental import (
+    compute_extraction_window,
+    keep_new_rows,
 )
-
-from src.storage.local_storage import (
-    write_json,
-    write_parquet,
-    merge_into_silver,
+from src.quality.feature_checks import (
+    validate_risk_features,
 )
-
-from src.transformation.market import (
-    transform_market_data,
-)
-
-from src.transformation.history import (
-    transform_market_history,
-)
-
-from src.quality.market_checks import (
-    validate_market_data,
-)
-
 from src.quality.history_checks import (
     validate_market_history,
 )
-
+from src.quality.market_checks import (
+    validate_market_data,
+)
+from src.storage.local_storage import (
+    merge_into_silver,
+    write_json,
+    write_parquet,
+)
+from src.transformation.features import (
+    engineer_risk_features,
+)
+from src.transformation.history import (
+    transform_market_history,
+)
+from src.transformation.market import (
+    transform_market_data,
+)
+from src.transformation.risk_score import (
+    calculate_risk_score,
+)
 
 # CoinGecko's free Demo plan allows about 30 requests per minute.
 # If an audit row ever shows "429 Too Many Requests", raise this.

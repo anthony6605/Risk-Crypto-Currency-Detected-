@@ -3,16 +3,34 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
+# Old virtual environment (contains your home folder path; not part of the project)
+anthony/
 
-# Environment variables
+# Secrets: .env and any variant (.env.local, .env.prod, ...). Only the example is committed.
 .env
-
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
 
 # Local data
 data
 
 # Pipeline logs
 logs/
+*.log
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
