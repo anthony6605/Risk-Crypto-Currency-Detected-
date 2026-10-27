@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from confluent_kafka import Consumer, Producer
 
 BOOTSTRAP = "localhost:9092"
-TOPIC = "crypto.prices.raw"
+# Its own topic (created by kafka-init, kept for 1 hour), so the test messages
+# never reach the consumer, Spark or scripts/check_stream.py
+TOPIC = "crypto.smoke_test"
 
 
 def delivery_report(err, msg):

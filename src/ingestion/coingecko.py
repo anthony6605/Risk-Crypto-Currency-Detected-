@@ -50,30 +50,6 @@ class CoinGeckoClient:
         response.raise_for_status()
         return response.json()
 
-    def get_market_history(
-        self,
-        coin_id: str,
-        currency: str = "usd",
-        days: int = 30,
-    ):
-        url = (
-            f"{self.BASE_URL}/coins/"
-            f"{coin_id}/market_chart"
-        )
-
-        params = {
-            "vs_currency": currency,
-            "days": days,
-        }
-
-        response = self.session.get(
-            url,
-            params=params,
-            timeout=30,
-        )
-        response.raise_for_status()
-        return response.json()
-
     def get_market_history_range(
         self,
         coin_id: str,

@@ -21,14 +21,15 @@ def compute_features(bars, min_bars=MIN_BARS):
     rows = []
 
     for base_asset, group in bars.sort_values("bar_start").groupby("base_asset"):
-        # bars_24h counts minutes that actually had trades
+        # bars_24h counts minutes that had a price update (one per poll)
         if len(group) < min_bars:
             continue
 
-        # Bars only exist for minutes with trades. Put the closes on a regular
-        # 1-minute grid (a minute without trades keeps the last price) so every
-        # return covers exactly one minute. Otherwise a 10-minute gap counts as a
-        # single 1-minute move, and quiet coins look far more volatile than they are.
+        # Bars only exist for minutes with a price update: one every 10 minutes when
+        # polling CoinGecko. Put the closes on a regular 1-minute grid (a minute
+        # without an update keeps the last price) so every return covers exactly one
+        # minute. Otherwise a 10-minute move counts as a 1-minute move, and every
+        # coin looks far more volatile than it is.
         closes = (
             group.set_index("bar_start")["close"]
             .astype(float)
