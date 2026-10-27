@@ -1,0 +1,16 @@
+# Changes for the AWS server (Step 51). Used as:
+#   docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d
+services:
+  # Amazon S3 replaces the local object store, so these only start with --profile local-lake.
+  lake:
+    profiles: ["local-lake"]
+  lake-init:
+    profiles: ["local-lake"]
+
+  # Spark needs more memory than the default instance has; start it with --profile spark.
+  spark-bars:
+    profiles: ["spark"]
+
+  dagster:
+    environment:
+      S3_ENDPOINT: ""   # empty = use real S3 with the instance's IAM role

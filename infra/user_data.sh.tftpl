@@ -1,0 +1,38 @@
+#!/bin/bash
+# Runs once, as root, on the first boot. Log: /var/log/cloud-init-output.log
+set -euo pipefail
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-v2 git openssl
+snap install aws-cli --classic
+systemctl enable --now docker
+
+git clone --depth 1 --branch "${repo_branch}" "${repo_url}" /opt/riskcoin
+cd /opt/riskcoin
+
+# Secrets are generated here, on the server, so they never appear in Terraform state.
+COINGECKO_API_KEY=$(aws ssm get-parameter --region "${region}" --name /riskcoin/coingecko_api_key \
+  --with-decryption --query Parameter.Value --output text 2>/dev/null || echo "")
+if [ -z "$${COINGECKO_API_KEY}" ]; then
+  echo "WARNING: no SSM parameter /riskcoin/coingecko_api_key; the producer can't start without it"
+fi
+
+cat > .env <<ENV
+COINGECKO_BASE_URL=https://api.coingecko.com/api/v3
+COINGECKO_API_KEY=$${COINGECKO_API_KEY}
+# Programs run on this server use localhost:5433; containers use postgres:5432 (docker-compose.yml)
+POSTGRESQL_HOST=localhost
+POSTGRESQL_PORT=5433
+POSTGRESQL_USER=postgres
+POSTGRESQL_PASSWORD=$(openssl rand -hex 16)
+POSTGRESQL_DB=RiskCoin
+GRAFANA_ADMIN_PASSWORD=$(openssl rand -hex 12)
+AWS_REGION=${region}
+LAKE_BUCKET=${lake_bucket}
+S3_ENDPOINT=
+S3_ACCESS_KEY=unused
+S3_SECRET_KEY=unused-on-aws
+ENV
+chmod 600 .env
+
+docker compose -f docker-compose.yml -f docker-compose.aws.yml up -d --build

@@ -8,6 +8,7 @@ transform/target/
 transform/logs/
 transform/dbt_packages/
 .dagster_home/
+infra/
 data/
 logs/
 __pycache__/

@@ -37,6 +37,12 @@ transform/.user.yml
 # Dagster run history when it runs outside Docker
 .dagster_home/
 
+# Terraform (Step 51): provider downloads, state (what exists in AWS) and your settings
+infra/.terraform/
+infra/terraform.tfstate*
+infra/.terraform.tfstate.lock.info
+infra/*.tfvars
+
 # Test and lint caches
 .pytest_cache/
 .ruff_cache/
