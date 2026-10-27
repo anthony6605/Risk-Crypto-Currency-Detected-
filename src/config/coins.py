@@ -2,7 +2,6 @@ from pathlib import Path
 
 import yaml
 
-
 # parents[2] walks up from src/config/coins.py to the project root,
 # so this works no matter which folder you run from
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
