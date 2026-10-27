@@ -180,6 +180,18 @@ services:
     <<: *app
     command: python -m src.jobs.refresh_coin_catalog --every 86400
 
+  # Step 43: Streamlit dashboard at http://localhost:8501
+  dashboard:
+    <<: *app
+    command: >
+      streamlit run app/dashboard.py
+      --server.address=0.0.0.0
+      --server.port=8501
+      --server.headless=true
+      --browser.gatherUsageStats=false
+    ports:
+      - "8501:8501"
+
   # Only runs when asked: docker compose run --rm batch
   batch:
     <<: *app

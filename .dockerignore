@@ -2,6 +2,7 @@
 .venv/
 venv/
 anthony/
+guides/
 data/
 logs/
 __pycache__/
