@@ -1,5 +1,5 @@
 # One-word commands for the RiskCoin stack, e.g. `make up` or `make test`.
-.PHONY: up down ps logs test test-db lint backfill catalog psql dashboard
+.PHONY: up down ps logs test test-db lint backfill catalog psql dashboard dbt-setup dbt-build dbt dbt-docs
 
 # Use the project's virtual environment when there is one
 PYTHON := $(if $(wildcard venv/bin/python),venv/bin/python,python3)
@@ -50,3 +50,22 @@ psql:
 # macOS; on Linux use xdg-open
 dashboard:
 	open http://localhost:8501
+
+# dbt (transform/) runs in its own virtualenv, see requirements-dbt.txt. python-dotenv loads
+# .env for it the same way the Python code reads it (spaces around = and quotes are fine).
+DBT := cd transform && ../.venv-dbt/bin/dotenv -f ../.env run -- ../.venv-dbt/bin/dbt
+
+dbt-setup:
+	$(PYTHON) -m venv .venv-dbt
+	.venv-dbt/bin/pip install -r requirements-dbt.txt
+
+dbt-build:
+	$(DBT) build --profiles-dir .
+
+# Any other dbt command, e.g. make dbt ARGS="source freshness"
+dbt:
+	$(DBT) $(ARGS) --profiles-dir .
+
+dbt-docs:
+	$(DBT) docs generate --profiles-dir .
+	$(DBT) docs serve --profiles-dir . --port 8080

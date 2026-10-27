@@ -1,0 +1,14 @@
+# Connection settings, read from environment variables (.env), so no secret is stored here.
+# On your Mac this is localhost:5433; Dagster in Docker sets DBT_HOST=postgres, DBT_PORT=5432.
+riskcoin:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_PORT', '5433') | int }}"
+      user: "{{ env_var('POSTGRESQL_USER', 'postgres') }}"
+      password: "{{ env_var('POSTGRESQL_PASSWORD') }}"
+      dbname: "{{ env_var('POSTGRESQL_DB', 'RiskCoin') }}"
+      schema: analytics
+      threads: 4

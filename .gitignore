@@ -6,6 +6,7 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+.venv-dbt/
 # Old virtual environment (contains your home folder path; not part of the project)
 anthony/
 
@@ -26,6 +27,12 @@ guides/
 # Pipeline logs
 logs/
 *.log
+
+# dbt build output
+transform/target/
+transform/logs/
+transform/dbt_packages/
+transform/.user.yml
 
 # Test and lint caches
 .pytest_cache/

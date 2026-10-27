@@ -1,0 +1,9 @@
+snapshots:
+  - name: coin_catalog_snapshot
+    relation: source('riskcoin', 'coin_catalog')
+    description: Type 2 history of each symbol's CoinGecko mapping and market-cap rank.
+    config:
+      schema: snapshots
+      unique_key: symbol
+      strategy: check
+      check_cols: [coin_id, market_cap_rank]

@@ -3,6 +3,10 @@
 venv/
 anthony/
 guides/
+.venv-dbt/
+transform/target/
+transform/logs/
+transform/dbt_packages/
 data/
 logs/
 __pycache__/

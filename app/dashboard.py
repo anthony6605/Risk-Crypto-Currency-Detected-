@@ -79,6 +79,14 @@ WHERE base_asset = :base_asset
 ORDER BY bar_start
 """
 
+# From the dbt warehouse (transform/); the table exists once `make dbt-build` has run
+DAILY_SQL = """
+SELECT price_date, close_price, realized_vol_annualized
+FROM marts.fct_coin_daily
+WHERE base_asset = :base_asset
+ORDER BY price_date
+"""
+
 THROUGHPUT_SQL = """
 SELECT
     to_timestamp(floor(EXTRACT(EPOCH FROM started_at) / 600) * 600) AS period,
@@ -273,6 +281,16 @@ def coin_detail_tab():
         st.info("No price updates in the last 24 hours.")
     else:
         st.line_chart(bars.set_index("bar_start")["close"])
+
+    try:
+        daily = query(DAILY_SQL, base_asset=base_asset)
+    except pd.errors.DatabaseError:  # pandas' wrapper; here the dbt table doesn't exist yet
+        st.caption("Daily history appears here once the dbt models are built (make dbt-build).")
+        return
+    if not daily.empty:
+        st.subheader("Daily history (dbt mart)")
+        st.line_chart(daily.set_index("price_date")[["close_price"]])
+        st.bar_chart(daily.set_index("price_date")[["realized_vol_annualized"]])
 
 
 def pipeline_tab():
