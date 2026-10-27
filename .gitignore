@@ -20,6 +20,9 @@ credentials.json
 # Local data
 data
 
+# Course guides (local reference notes, not part of the project)
+guides/
+
 # Pipeline logs
 logs/
 *.log
