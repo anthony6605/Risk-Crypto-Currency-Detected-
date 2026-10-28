@@ -54,7 +54,7 @@ DELETE_OLD_BARS = text(
     "DELETE FROM price_bars_1m WHERE bar_start < CURRENT_TIMESTAMP - make_interval(days => :days)"
 )
 
-# The consumer writes one audit row per flush (about 2,900 a day); keep 14 days
+# The consumer writes one audit row per flush (one per poll, about 150 a day); keep 14 days
 DELETE_OLD_STREAM_AUDIT = text(
     """
     DELETE FROM pipeline_audit
@@ -116,8 +116,8 @@ def main():
     parser = argparse.ArgumentParser(description="Compute live risk scores from 1-minute bars")
     parser.add_argument("--every", type=int, default=None, help="Repeat every N seconds")
     parser.add_argument("--min-bars", type=int, default=MIN_BARS,
-                        help=f"Minutes with trades a coin needs in 24h to be scored (default {MIN_BARS}; "
-                             "use a small number to test before an hour of data exists)")
+                        help=f"Price updates a coin needs in 24h to be scored (default {MIN_BARS}, "
+                             "about 10 hours of 10-minute polls; use a small number to test sooner)")
     args = parser.parse_args()
 
     engine = get_engine()

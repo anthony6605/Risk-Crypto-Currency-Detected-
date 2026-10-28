@@ -7,9 +7,9 @@ from sqlalchemy.engine import URL
 load_dotenv()
 
 
-def get_engine():
+def get_database_url():
 
-    database_url = URL.create(
+    return URL.create(
         drivername="postgresql+psycopg2",
         username=os.getenv("POSTGRESQL_USER"),
         password=os.getenv("POSTGRESQL_PASSWORD"),
@@ -23,8 +23,11 @@ def get_engine():
         database=os.getenv("POSTGRESQL_DB"),
     )
 
+
+def get_engine():
+
     engine = create_engine(
-        database_url,
+        get_database_url(),
         pool_pre_ping=True,
     )
 

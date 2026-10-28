@@ -6,6 +6,7 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+.venv-dbt/
 # Old virtual environment (contains your home folder path; not part of the project)
 anthony/
 
@@ -20,9 +21,27 @@ credentials.json
 # Local data
 data
 
+# Course guides (local reference notes, not part of the project)
+guides/
+
 # Pipeline logs
 logs/
 *.log
+
+# dbt build output
+transform/target/
+transform/logs/
+transform/dbt_packages/
+transform/.user.yml
+
+# Dagster run history when it runs outside Docker
+.dagster_home/
+
+# Terraform (Step 51): provider downloads, state (what exists in AWS) and your settings
+infra/.terraform/
+infra/terraform.tfstate*
+infra/.terraform.tfstate.lock.info
+infra/*.tfvars
 
 # Test and lint caches
 .pytest_cache/

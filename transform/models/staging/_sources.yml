@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: riskcoin
+    description: Tables written by the RiskCoin Python services.
+    schema: public
+    tables:
+      - name: price_bars_1m
+        description: 1-minute OHLC bars written by the Kafka consumer (8 days retained).
+        config:
+          loaded_at_field: bar_start
+          # The producer polls CoinGecko every 10 minutes, so the newest bar is
+          # normally up to about 15 minutes old
+          freshness:
+            warn_after: {count: 20, period: minute}
+            error_after: {count: 60, period: minute}
+      - name: coin_catalog
+        description: Exchange symbol to CoinGecko id mapping, refreshed daily.
+      - name: live_risk
+        description: Latest live risk score per coin, refreshed every 5 minutes.
+      - name: pipeline_audit
+        description: One row per job run, coin or stream batch.

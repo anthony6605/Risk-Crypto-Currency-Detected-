@@ -1,0 +1,85 @@
+version: 2
+
+models:
+  - name: fct_price_hourly
+    description: >
+      Hourly OHLC per coin, built incrementally from 1-minute bars. Keeps history forever,
+      even though the source bars are only retained for 8 days.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [base_asset, hour_start]
+    columns:
+      - name: base_asset
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_coin')
+                field: base_asset
+      - name: hour_start
+        data_tests: [not_null]
+      - name: minutes_observed
+        description: Number of 1-minute bars in the hour (about 6, one per 10-minute poll).
+      - name: is_complete_hour
+        description: True when the hour has at least 5 bars, so at most one poll is missing.
+
+  - name: dim_coin
+    description: One row per coin that has ever been streamed.
+    columns:
+      - name: base_asset
+        data_tests: [unique, not_null]
+      - name: market_cap_tier
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["mega", "large", "mid", "small", "unranked"]
+
+  - name: fct_coin_daily
+    description: Daily OHLC, return and realized volatility per coin.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [base_asset, price_date]
+    columns:
+      - name: realized_vol_annualized
+        description: >
+          Annualised standard deviation of hourly log returns. Only returns between consecutive
+          hours count, so a gap in the stream doesn't inflate it.
+
+  - name: mart_risk_by_tier
+    description: Current live risk summarised by market-cap tier and risk level.
+
+  - name: mart_pipeline_daily
+    description: Daily run counts, success rate and throughput per pipeline.
+
+unit_tests:
+  - name: dim_coin_assigns_tiers_and_flags_uncataloged_coins
+    model: dim_coin
+    given:
+      - input: ref('fct_price_hourly')
+        rows:
+          - {base_asset: BTC}
+          - {base_asset: MID}
+          - {base_asset: NEW}
+      - input: ref('stg_coin_catalog')
+        rows:
+          - {symbol: btc, coin_id: bitcoin, name: Bitcoin, market_cap_rank: 1}
+          - {symbol: mid, coin_id: mid-coin, name: Mid Coin, market_cap_rank: 250}
+    expect:
+      rows:
+        - {base_asset: BTC, coin_name: Bitcoin, market_cap_tier: mega, is_cataloged: true}
+        - {base_asset: MID, coin_name: Mid Coin, market_cap_tier: mid, is_cataloged: true}
+        - {base_asset: NEW, coin_name: NEW, market_cap_tier: unranked, is_cataloged: false}
+
+exposures:
+  - name: riskcoin_dashboard
+    label: RiskCoin Streamlit dashboard
+    type: dashboard
+    url: http://localhost:8501
+    owner:
+      name: Anh
+    depends_on:
+      - ref('fct_coin_daily')
+      - ref('mart_risk_by_tier')
+      - ref('mart_pipeline_daily')

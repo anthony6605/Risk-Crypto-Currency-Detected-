@@ -2,6 +2,13 @@
 .venv/
 venv/
 anthony/
+guides/
+.venv-dbt/
+transform/target/
+transform/logs/
+transform/dbt_packages/
+.dagster_home/
+infra/
 data/
 logs/
 __pycache__/

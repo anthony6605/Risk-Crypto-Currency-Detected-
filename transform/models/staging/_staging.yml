@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: stg_price_bars
+    description: Cleaned 1-minute bars, one row per coin per minute with a price update.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [base_asset, bar_start]
+    columns:
+      - name: base_asset
+        data_tests: [not_null]
+      - name: bar_start
+        data_tests: [not_null]
+
+  - name: stg_coin_catalog
+    columns:
+      - name: symbol
+        data_tests: [unique, not_null]
+      - name: coin_id
+        data_tests: [not_null]
+
+  - name: stg_live_risk
+    columns:
+      - name: base_asset
+        data_tests: [unique, not_null]
+      - name: risk_level
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["LOW", "MEDIUM", "HIGH", "EXTREME"]
+
+  - name: stg_pipeline_audit
+    columns:
+      - name: audit_id
+        data_tests: [unique, not_null]
+      - name: status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ["RUNNING", "SUCCESS", "SKIPPED", "FAILED"]

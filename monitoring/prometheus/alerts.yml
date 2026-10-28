@@ -1,0 +1,56 @@
+groups:
+  - name: riskcoin-stream
+    # The producer polls CoinGecko every 10 minutes, so most windows below are 30 minutes
+    # (three polls) instead of a few minutes
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is not answering /metrics"
+
+      - alert: ProducerNotPublishing
+        expr: sum(rate(riskcoin_producer_events_published_total[30m])) == 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The producer has published nothing for an hour (CoinGecko or Kafka problem)"
+
+      - alert: ConsumerNotFlushing
+        expr: time() - riskcoin_consumer_last_flush_timestamp_seconds > 1500
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The consumer hasn't committed a batch for {{ $value | humanizeDuration }}"
+
+      - alert: ConsumerFallingBehind
+        expr: sum(riskcoin_consumer_kafka_lag_messages) > 20000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} messages are waiting in Kafka"
+
+      - alert: DataIsStale
+        expr: riskcoin_consumer_event_lag_seconds > 1800
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "The newest written event is {{ $value | humanizeDuration }} old"
+
+      # CoinGecko's own 24h high/low is sometimes inconsistent with its price, so 0-2% of
+      # events normally fail validation. 5% means something is really wrong.
+      - alert: HighRejectRate
+        expr: |
+          sum(rate(riskcoin_consumer_events_rejected_total[30m]))
+            / sum(rate(riskcoin_consumer_messages_consumed_total[30m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of messages are going to the DLQ"

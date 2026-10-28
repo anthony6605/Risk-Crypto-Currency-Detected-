@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 import yaml
-from confluent_kafka import Consumer, KafkaError, Producer
+from confluent_kafka import Consumer, KafkaError, KafkaException, Producer
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.serialization import SerializationError
 from sqlalchemy import text
@@ -15,6 +15,7 @@ from sqlalchemy import text
 from src.database.connection import get_engine
 from src.database.control import finish_audit, start_audit
 from src.database.schema import create_tables
+from src.monitoring import metrics
 from src.streaming.bars import build_bars
 from src.streaming.validation import validate_event
 
@@ -198,6 +199,7 @@ class StreamConsumer:
         self.batch_rejected = 0
         self.rejected_reasons = {}
         self.last_flush = time.monotonic()
+        metrics.LAST_FLUSH.set_to_current_time()  # so "no flush for 25 minutes" counts from start-up
         self.running = True
         self.counts = {"consumed": 0, "duplicates": 0, "rejected": 0, "written": 0, "flushes": 0}
 
@@ -219,6 +221,7 @@ class StreamConsumer:
         self.counts["rejected"] += 1
         for reason in reasons:
             self.rejected_reasons[reason] = self.rejected_reasons.get(reason, 0) + 1
+            metrics.EVENTS_REJECTED.labels(reason=reason.split(":")[0]).inc()
 
     def decode(self, msg):
         """Return the event as a dict, or send the message to the DLQ and return None."""
@@ -247,6 +250,7 @@ class StreamConsumer:
         self.uncommitted += 1
         self.batch_consumed += 1
         self.counts["consumed"] += 1
+        metrics.MESSAGES_CONSUMED.inc()
 
         event = self.decode(msg)
         if event is None:
@@ -259,6 +263,7 @@ class StreamConsumer:
 
         if event["event_id"] in self.seen_ids:
             self.counts["duplicates"] += 1
+            metrics.DUPLICATES_DROPPED.inc()
             return
 
         self.seen_ids.add(event["event_id"])
@@ -277,6 +282,8 @@ class StreamConsumer:
             return
 
         audit_id = start_audit(self.engine, coin_id=None, pipeline_name=PIPELINE_NAME)
+        started = time.monotonic()
+        newest_event = None
         try:
             # 1. Bad messages must be safely in the DLQ before we move past them
             undelivered = self.dlq_producer.flush(30)
@@ -291,6 +298,7 @@ class StreamConsumer:
                 coins = upsert_live_prices(self.engine, latest_per_coin(df))
                 bars = upsert_bars(self.engine, build_bars(df))
                 self.counts["written"] += len(df)
+                newest_event = df["event_time"].max()
 
             # 3. Only now commit the offsets
             self.consumer.commit(asynchronous=False)
@@ -305,7 +313,15 @@ class StreamConsumer:
             )
         except Exception as exc:
             finish_audit(self.engine, audit_id, "FAILED", error_message=str(exc)[:2000])
+            metrics.FLUSH_FAILURES.inc()
             raise
+
+        metrics.FLUSH_SECONDS.observe(time.monotonic() - started)
+        metrics.LAST_FLUSH.set_to_current_time()
+        metrics.EVENTS_WRITTEN.inc(len(self.buffer))
+        if newest_event is not None:
+            metrics.EVENT_LAG.set(time.time() - newest_event.timestamp())
+        self.update_kafka_lag()
 
         self.counts["flushes"] += 1
         c = self.counts
@@ -322,6 +338,17 @@ class StreamConsumer:
         self.batch_rejected = 0
         self.rejected_reasons = {}
         self.last_flush = time.monotonic()
+
+    def update_kafka_lag(self):
+        """Messages per partition that Kafka has but this consumer hasn't read yet."""
+        try:
+            assigned = self.consumer.assignment()
+            for tp, position in zip(assigned, self.consumer.position(assigned)):
+                low, high = self.consumer.get_watermark_offsets(tp, timeout=5)
+                read_up_to = position.offset if position.offset >= 0 else low
+                metrics.KAFKA_LAG.labels(partition=str(tp.partition)).set(max(high - read_up_to, 0))
+        except KafkaException as exc:
+            print(f"Could not read Kafka lag: {exc}")
 
     def run(self):
         self.consumer.subscribe([self.topic])
@@ -351,6 +378,7 @@ class StreamConsumer:
 
 def main():
     config = load_config()
+    metrics.start_metrics_server(8001, metrics.CONSUMER)
     engine = get_engine()
     create_tables(engine)
 

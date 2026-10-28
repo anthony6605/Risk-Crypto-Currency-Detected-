@@ -53,3 +53,7 @@ jobs:
       - run: cp .env.example .env
       - run: docker compose config --quiet
       - run: docker build -t riskcoin-app .
+      - run: docker run --rm riskcoin-app dagster definitions validate -m orchestration.definitions
+      - run: >
+          docker run --rm --entrypoint promtool -v "$PWD/monitoring/prometheus:/etc/prometheus:ro"
+          prom/prometheus:v3.15.1 check config /etc/prometheus/prometheus.yml

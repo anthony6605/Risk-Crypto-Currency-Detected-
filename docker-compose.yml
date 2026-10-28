@@ -8,6 +8,7 @@ x-docker-env: &docker-env
   POSTGRESQL_HOST: postgres
   POSTGRESQL_PORT: "5432"
   SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  S3_ENDPOINT: http://lake:9000
 
 # Shared settings for every service built from this project's Dockerfile.
 # (No shared "image:" name: several services building one tag in parallel collide.
@@ -111,6 +112,9 @@ services:
         /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists \
           --topic crypto.prices.avro --partitions 6 --replication-factor 1 \
           --config retention.ms=86400000 --config segment.ms=3600000 &&
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists \
+          --topic crypto.smoke_test --partitions 3 --replication-factor 1 \
+          --config retention.ms=3600000 &&
         echo "Topics ready"
     restart: "no"
 
@@ -176,9 +180,109 @@ services:
     <<: *app
     command: python -m src.jobs.compute_live_risk --every 300
 
-  coin-catalog:
+  # Step 47: S3-compatible object storage for the Iceberg lakehouse.
+  # S3 API on port 9000; web console at http://localhost:9001/rustfs/console/
+  lake:
+    image: rustfs/rustfs:1.0.4
+    container_name: riskcoin_lake
+    command: /data
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env}
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - lake_data:/data
+    restart: unless-stopped
+
+  # Creates the bucket, then exits. Safe on every start (|| true when it already exists).
+  lake-init:
+    image: amazon/aws-cli:2.31.0
+    depends_on:
+      - lake
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in .env}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in .env}
+      AWS_DEFAULT_REGION: us-east-1
+      LAKE_BUCKET: ${LAKE_BUCKET:-riskcoin-lake}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        until aws --endpoint-url http://lake:9000 s3 ls > /dev/null 2>&1; do sleep 2; done
+        aws --endpoint-url http://lake:9000 s3 mb "s3://$$LAKE_BUCKET" || true
+        aws --endpoint-url http://lake:9000 s3 ls
+    restart: "no"
+
+  # Step 46: Dagster runs the batch work on schedules, with retries and run history:
+  # the coin catalog, the CoinGecko history (main.py), dbt and a stream freshness check.
+  # UI: http://localhost:3000. Schedules start switched off; turn them on once in the UI.
+  dagster:
     <<: *app
-    command: python -m src.jobs.refresh_coin_catalog --every 86400
+    command: >
+      sh -c "cp orchestration/dagster.yaml $$DAGSTER_HOME/ &&
+      exec dagster dev -h 0.0.0.0 -p 3000 -m orchestration.definitions"
+    environment:
+      <<: *docker-env
+      DBT_HOST: postgres
+      DBT_PORT: "5432"
+      DAGSTER_HOME: /opt/dagster/home
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - dagster_home:/opt/dagster/home
+
+  # Step 50: Prometheus scrapes the producer (:8000) and consumer (:8001) metrics and
+  # evaluates the alert rules in monitoring/prometheus. http://localhost:9090
+  prometheus:
+    image: prom/prometheus:v3.15.1
+    container_name: riskcoin_prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  # Dashboards and data sources come from monitoring/grafana. http://localhost:3001
+  # (Dagster has 3000); log in as admin with GRAFANA_ADMIN_PASSWORD from .env
+  grafana:
+    image: grafana/grafana:13.2.4
+    container_name: riskcoin_grafana
+    depends_on:
+      - prometheus
+      - postgres
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      # For the PostgreSQL data source (monitoring/grafana/provisioning/datasources)
+      POSTGRESQL_USER: ${POSTGRESQL_USER:-postgres}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?Set POSTGRESQL_PASSWORD in .env}
+      POSTGRESQL_DB: ${POSTGRESQL_DB:-RiskCoin}
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+
+  # Step 43: Streamlit dashboard at http://localhost:8501
+  dashboard:
+    <<: *app
+    command: >
+      streamlit run app/dashboard.py
+      --server.address=0.0.0.0
+      --server.port=8501
+      --server.headless=true
+      --browser.gatherUsageStats=false
+    ports:
+      - "8501:8501"
 
   # Only runs when asked: docker compose run --rm batch
   batch:
@@ -217,3 +321,7 @@ volumes:
   kafka_data:
   spark_checkpoints:
   spark_ivy:
+  dagster_home:
+  lake_data:
+  prometheus_data:
+  grafana_data:

@@ -1,0 +1,5 @@
+# dbt runs in its own virtualenv (.venv-dbt), so its ~40 dependencies, including its
+# protobuf < 7 pin, don't change the app's packages. Set it up with: make dbt-setup
+dbt-core==1.12.6
+dbt-postgres==1.11.0
+python-dotenv[cli]==1.2.3

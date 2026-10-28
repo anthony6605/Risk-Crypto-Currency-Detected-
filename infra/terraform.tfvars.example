@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (git-ignored) and put in your own email:
+#   cp terraform.tfvars.example terraform.tfvars
+region             = "us-east-1"
+repo_url           = "https://github.com/anthony6605/Risk-Crypto-Currency-Detected-.git"
+alert_email        = "you@example.com"
+monthly_budget_usd = 20
