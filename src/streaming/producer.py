@@ -31,7 +31,7 @@ def load_config(path=CONFIG_PATH):
     with open(path) as f:
         config = yaml.safe_load(f)
 
-    # Inside Docker this points at the Kafka container; on your Mac it isn't set
+    
     config["kafka"]["bootstrap_servers"] = os.getenv(
         "KAFKA_BOOTSTRAP_SERVERS", config["kafka"]["bootstrap_servers"]
     )
